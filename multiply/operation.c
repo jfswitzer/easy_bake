@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include <curses.h>
-#include <immintrin.h>
+//#include <immintrin.h>
 #include <limits.h>
 #include <pthread.h>
 #include <sched.h>
@@ -11,7 +11,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <x86intrin.h>
+//#include <x86intrin.h>
 
 int verbose=1;
 int fd;
@@ -40,21 +40,21 @@ void *multiply_it(void *input)
 	uint64_t iterations=ci->iterations_performed;
 	uint64_t max1=ci->operand1;
 	uint64_t max2=ci->operand2;
-	uint64_t min1=ci->operand1_min;
-	uint64_t min2=ci->operand2_min;
-	unsigned int one,two;
+	uint64_t oper1=ci->operand1_min;
+	uint64_t oper2=ci->operand2_min;
+	
 	while (faulty_result_found==0 && undervolting_finished==0)
 	{
 		ci->iterations_performed=0;
 		if (ci->max_or_fixed_op1=='M')
 		{
-			__builtin_ia32_rdrand32_step(&one);
-			ci->operand1=one % (max1 - min1) + min1;
+		  oper1 = ( oper1 + 1 ) % max1;
+		  ci->operand1 = oper1;
 		}
 		if (ci->max_or_fixed_op2=='M')
 		{
-			__builtin_ia32_rdrand32_step(&two);
-			ci->operand2=(two % (max2-min2)) + 1+min2 ;
+		  oper2 = ( oper2 + 1 ) % max2;
+		  ci->operand2 = oper2;
 		}
 		do
 		{
@@ -99,7 +99,7 @@ int main (int argc, char* argv[])
 		usage(program);
 		return -1;
 	}
-	uint64_t iterations = 1000;
+	uint64_t iterations = 100;
 	uint64_t operand1=4294967296, operand2=4294967296;
 	char max_or_fixed_op1='M', max_or_fixed_op2='M';
 	uint64_t operand1_min=0,operand2_min=0;
