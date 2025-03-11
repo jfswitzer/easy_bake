@@ -8,6 +8,10 @@ import sys
 import select
 import re
 import itertools
+import os
+
+OUTPUT_DIR="output_logs"
+CSV_NAME="results.csv"
 
 # ================ TODOS
 # (on pi)
@@ -45,6 +49,7 @@ class LType(Enum):
   RECV = 1
   SEND = 2
   LOG_ = 3
+  RSLT = 4
   ERR_ = 10 # Debug levels: 0 is almost always too verbose
   DBG0 = 20 # Debug levels: 0 is almost always too verbose
             #               10 is almost always shown
@@ -57,7 +62,16 @@ class LogEntry:
         self.data = data
 
     def __repr__(self):
-        return f"[{self.entry_number}] {self.timestamp} {self.type.name.upper()}: {self.data}"
+        return f"<LogEntry #{self.entry_number} {self.timestamp} {self.type.name.upper()}: {self.data}>"
+
+    def __str__(self):
+        time = self.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] # we don't need microsec
+
+        # Also: let's make things more legible with some editing
+        fmt = self.type.name + ": "
+        if self.type == LType.RECV: fmt = "    < "
+        if self.type == LType.SEND: fmt = "    > "
+        return f"[#{self.entry_number:04}; {time}] {fmt}{self.data}"
 
 class ScrResult:
     "Result of a script run"
@@ -67,6 +81,8 @@ class ScrResult:
         self.ok = ok
         self.msg = msg
 
+# Conceptually this is getting closer to a "TestRun" object
+# I should try to factor out the serial stuff maybe?
 class SerialInterface:
     def __init__(self, port, baudrate=115200, timeout=0.25):
         self.port = port
@@ -78,6 +94,16 @@ class SerialInterface:
         self.logEntries = []
         self.entry_counter = 0
 
+        # Meaningful state
+        self.results = {}
+        # STATE:
+        # - runid
+        # - config options (config_id n)
+        # - boot_ok
+        # - genconf_ok
+        # - tryboot_ok # Actual result
+        # - stress_ok  # Actual result
+
     # ============= INTERNAL METHODS
 
     def _addLogEntry(self, entry_type, data):
@@ -87,7 +113,7 @@ class SerialInterface:
         self.entry_counter += 1
 
         # TODO: only log if we're in verbose mode?
-        self.print_log_entry(entry)
+        print(str(entry))
 
     def log(self, msg):
         self._addLogEntry(LType.LOG_, msg)
@@ -95,6 +121,60 @@ class SerialInterface:
         self._addLogEntry(LType.DBG0, msg)
     def err(self, msg):
         self._addLogEntry(LType.ERR_, msg)
+
+    def recordResult(self, key, value, msg):
+        " Records a meaningful bit of state (i.e. will go in results CSV)"
+        self.results[key] = value
+        self._addLogEntry(LType.RSLT, f"({key}={value}) " + msg)
+
+    def writeOutResults(self):
+        """Writes out full log to runid.log, """
+
+        assert "runid" in self.results, "ERROR: can't record results without runid"
+
+        logfile = f"{self.results['runid']}.log"
+        #rlogfile = f"{runid}.resultlog"
+        csvfile = CSV_NAME
+        csvpath =  os.path.join(OUTPUT_DIR, csvfile)
+
+
+
+        # === Write results to csv
+
+        # TODO: centralize this / chekc it somehow?
+        # All the result columns we're writing to the CSV
+        keys = [ "runid", "config_args", "boot_ok", "genconf_ok",
+                "tryboot_ok", "stress_ok"]
+        resultsline = ",".join( str(self.results.get(k,"")) for k in keys)
+        self.log(f"Appending results to {csvpath}: {resultsline}")
+
+        # if csv doesn't exist: put in column headers
+        if not os.path.exists(csvpath):
+            with open(csvpath, "a") as f:
+                f.write(",".join(keys) + "\n")
+
+
+        with open(csvpath, "a") as f:
+            f.write(resultsline + "\n")
+
+        logpath =  os.path.join(OUTPUT_DIR, logfile)
+        print(f"Writing log to {logpath}")
+
+        #rlogpath = os.path.join(OUTPUT_DIR, rlogfile)
+        if os.path.exists(logpath):
+            print(f"Error: {logpath} already exists")
+            return
+
+        with open(logpath, "w") as outfile:
+            for entry in self.logEntries:
+                outfile.write(str(entry) + "\n")
+
+
+
+
+
+
+    # ============= Serial stuff?
 
 
     def setPower(self, power_en):
@@ -112,7 +192,7 @@ class SerialInterface:
         self.log(f"Setting POWER={powerstr}");
 
 
-    # ============= PUBLIC API
+    # ============= PUBLIC API (for serial stuff??)
 
     def reboot(self) :
         self.setPower(False)
@@ -202,27 +282,8 @@ class SerialInterface:
             self.ser.close()
         self.log("Serial connection closed")
 
-    def print_log_entry(self, e):
-        # time goes
-        #time = e.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")
-        time = e.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] # we don't need microsec
-
-        # Also: let's make things more legible with some editing
-        fmt = e.type.name + ": "
-        if e.type == LType.RECV: fmt = "    < "
-        if e.type == LType.SEND: fmt = "    > "
-        print(f"[#{e.entry_number:04}; {time}] {fmt}{e.data}")
-
-    def print_all_log_entries(self):
+    def allLogsToStr(self):
         for entry in self.logEntries:
-            self.print_log_entry(entry)
-
-    def print_last_received(self, n):
-        lastRecvRev = [e for e in reversed(self.logEntries) if e.type == LType.RECV]
-        lastN = reversed(lastRecvRev[:n])
-        # TODO: separate out the selecting and the printing?
-        # TODO: I should just make a thing to get all received lines and do [-n:]
-        for entry in lastN:
             self.print_log_entry(entry)
 
 
@@ -261,7 +322,7 @@ class SerialInterface:
         Returns a failure if the command timed out or if output didn't match pattern
         """
 
-        err_exit("NOT IMPLEMENTED")
+        assert False, "NOT IMPLEMENTED"
 
         self.send(cmd)
         self.read()
@@ -316,30 +377,29 @@ class SerialInterface:
     def scr_Login(self):
         "Call this after boot completes"
 
+        # Because of the tty / systemd bullshit, sometimes it prompts and sometimes it auto-logs in
         if self.checkLastLine("raspberrypi login:"):
-            # successfully booted
+            # successfully booted, send uname and pw
             self.send("baking");
             self.read()
             self.send("baking");
             self.read(max_time=10, silent_time=3)
         elif self.checkLastLine("\[press ENTER to login\]"):
-            #oops, this happens sometimes
+            # sometimes it just lets us log in
             self.send("");
             self.read(max_time=10, silent_time=3)
         else:
-            self.err("Failed to boot: last lines are:")
-            self.print_last_received(5)
+            self.err("Failed to boot")
             return ScrResult(False, "Boot timed out")
 
         # Hopefully logged in?
         if not self.checkAtPrompt():
-            #successfully logged in
-            self.log("Successfully booted and logged int")
-            return ScrResult(True, "")
-        else:
-            self.err("Failed to log in: last lines are:")
-            self.print_last_received(5)
+            self.err("Failed to log in")
             return ScrResult(False, "Login Failed")
+
+        #successfully logged in
+        self.log("Successfully booted and logged int")
+        return ScrResult(True, "Logged in successfully")
 
 
 
@@ -349,21 +409,31 @@ class SerialInterface:
         self.read()
         if not self.checkAtPrompt():
             self.err("Command Failed (not at prompt)")
-            return
+            return ScrResult(False, "cd failed?")
 
         self.send(f"python3 gen_config.py {conf_id} {n} --out new_tryboot.txt")
         self.read()
         if not self.checkAtPrompt():
             self.err("Command Failed (not at prompt)")
-            return
-        # TODO: CHECK FOR ERROR OUTPUT
+            return ScrResult(False, "gen_config timed out")
+
+        lastOut = self.allRecv()[-2] # second last line
+        if lastOut is None or not re.search("BAKE-STEP\|[A-Z_]*\|SUCCESS", lastOut.data):
+            self.err("Command Failed (didn't find BAKE-STEP|SUCCESS)")
+            return ScrResult(False, "gen_config failed")
 
         self.send(f"sudo cp new_tryboot.txt /boot/firmware/tryboot.txt"
                   +" && echo 'BAKE-STEP|CP|SUCCESS|'")
         self.read()
         if not self.checkAtPrompt():
             self.err("Command Failed (not at prompt)")
-            return
+            return ScrResult(False, "sudo cp timed out")
+        lastOut = self.allRecv()[-2] # second last line
+        if lastOut is None or not re.search("BAKE-STEP\|[A-Z_]*\|SUCCESS", lastOut.data):
+            self.err("Command Failed (didn't find BAKE-STEP|SUCCESS)")
+            return ScrResult(False, "sudo cp didn't succeed")
+
+        return ScrResult(True, f"Successfully generated config for '{conf_id} {n}'")
 
 
     def scr_Tryboot(self):
@@ -486,7 +556,7 @@ class SerialInterface:
 # # End of old main
 
 
-# ====== RUN STUFF:
+# ====== Main
 
 class RunInfo:
     def __init__(self, runname, config_id, n):
@@ -514,21 +584,66 @@ serint.open()
 serint.reboot()
 #serint.read(max_time=10)
 
-serint.scr_AwaitBoot()
 
-serint.scr_Login() #Log in to pi
 
-serint.send("ls")
-serint.read()
-# === TODO: test that we logged in successfully
-res_bootSucc=True
+def tryRun(self, runname, config_id, config_n):
+    assert not " " in runname, "runname should have no spaces"
+    assert not " " in config_id, "config_id should have no space"
+    assert isinstance(config_n, int), "n should be an int"
 
-serint.scr_GenConf("test_sweep", 0)
+    runid = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S") + str(runname)
+    self.recordResult("runid", runid, "Starting run")
+    self.recordResult("config_args", f"{config_id} {config_n}", "")
 
-# serint.scr_Tryboot()
-# serint.scr_AwaitBoot()
-# serint.scr_Login() #Log in to pi
-# 
+    self.reboot()
+
+    self.scr_AwaitBoot()
+
+    res = self.scr_Login() #Log in to pi
+    self.recordResult("boot_ok", res.ok, res.msg)
+    if not res.ok:
+        return
+
+
+    res = self.scr_GenConf("test_sweep", 0)
+    self.recordResult("genconf_ok", res.ok, res.msg)
+    if not res.ok:
+        return
+
+    # ==== All generated, now time to reboot
+    # (return here if we want to just boot and debug interactively)
+
+    serint.scr_Tryboot()
+    serint.scr_AwaitBoot()
+    res = serint.scr_Login() #Log in to pi
+    self.recordResult("tryboot_ok", res.ok, res.msg)
+    if not res.ok:
+        return
+
+    # TODO: run stress test
+
+# ============= TESTING CODE 
+def mock_run(self):
+    runname = "hello_world"
+    config_id, config_n = "beep", 42
+    assert not " " in runname, "runname should have no spaces"
+    assert not " " in config_id, "config_id should have no space"
+    assert isinstance(config_n, int), "n should be an int"
+    runid = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S") + "-" + str(runname)
+    self.recordResult("runid", runid, "Starting run")
+    self.recordResult("config_args", f"{config_id} {config_n}", "")
+
+    self.recordResult("boot_ok", True, "foo")
+
+    self.recordResult("genconf_ok", False, "bar")
+
+tryRun(serint, "test_run", "test_sweep", 0)
+#mock_run(serint)
+
+print("\n\n\n==== RUN RESULTS ===")
+print(serint.results)
+serint.writeOutResults()
+
 # # go interactive
 # serint.console()
 
