@@ -8,6 +8,25 @@ import sys
 import select
 import re
 
+# ================ TODOS
+# (on pi)
+# - move the config_and_reboot into a bash script
+# - move the stress test into a bash script
+#
+# (on host):
+# - write a "run_command" that runs, waits until prompt (or timeout),
+#   - returns a result code (got back to prompt or timed out)
+#   - returns a list of output entries (for checking success condition?)
+# - write a "dump logs to file"
+# - add a test/result logentry? (i.e. TEST: run_id=[test_sweep 0], TEST: result=[booted, true])
+#   - dump results to CSV
+
+# Refactors / improvements:
+# - switch to event loop, so reading happens automatically?
+# - have boot run faster (i.e. when it sees journald, wait until boot screen shows up)
+# - don't auto-power cycle (so can edit/rerun code without waiting for reboot)
+#   - might need to put a capacitor on global_en to handle transients??
+
 # Variable Constants? (Config Constants?)
 DEV = '/dev/ttyUSB0'
 
@@ -38,6 +57,14 @@ class LogEntry:
 
     def __repr__(self):
         return f"[{self.entry_number}] {self.timestamp} {self.type.name.upper()}: {self.data}"
+
+class ScrResult:
+    "Result of a script run"
+    # TODO: split this into timeouts? ERROR results from commands? etc?
+
+    def __init__(self, ok, msg):
+        self.ok = ok
+        self.msg = msg
 
 class SerialInterface:
     def __init__(self, port, baudrate=115200, timeout=0.25):
@@ -140,7 +167,7 @@ class SerialInterface:
                 self.dbg(f"read timed out: {elapsed_time}s elapsed")
                 return True # timed out: too much data
 
-            # if 
+            # if
             #if self.ser.in_waiting:
 
 
@@ -169,21 +196,6 @@ class SerialInterface:
 
         #data += self.ser.read(self.ser.in_waiting)
 
-    def lastReceivedLine(self):
-        " returns  last received line, or None "
-        for line in reversed(self.logEntries):
-            if line.type == LType.RECV:
-                return line
-        return None
-
-    def checkLastLine(self,pattern):
-        " Given a regex, returns true if last line matched this pattern "
-        # TODO: generalize this? want to check if 
-        if self.lastReceivedLine() is None:
-            return False
-        return re.search(pattern, self.lastReceivedLine().data)
-
-
     def close(self):
         if self.ser.is_open:
             self.ser.close()
@@ -211,6 +223,123 @@ class SerialInterface:
         # TODO: I should just make a thing to get all received lines and do [-n:]
         for entry in lastN:
             self.print_log_entry(entry)
+    def lastReceivedLine(self):
+        " returns  last received line, or None "
+        for line in reversed(self.logEntries):
+            if line.type == LType.RECV:
+                return line
+        return None
+
+    def lastSentLine(self):
+        " returns  last sent line, or None "
+        for line in reversed(self.logEntries):
+            if line.type == LType.SEND:
+                return line
+        return None
+
+    def checkLastLine(self,pattern):
+        " Given a regex, returns true if last line matched this pattern "
+        # TODO: generalize this? want to check if
+        if self.lastReceivedLine() is None:
+            return False
+        return re.search(pattern, self.lastReceivedLine().data)
+
+    # ================= BUILDING BLOCKS ======================
+
+    def checkAtPrompt(self, promptstr="baking@raspberrypi:.*\$"):
+        " Makes sure we've gotten a prompt since the last command we sent"
+        # TODO: generalize this? want to check if
+        lSent = self.lastSentLine()
+        lRecv = self.lastReceivedLine()
+
+        if lRecv is None:
+            return False # none received means no prompt
+
+        if lSent is not None and lSent.entry_number > lRecv.entry_number:
+            return False # none received since last sent command
+
+        return self.checkLastLine(promptstr)
+
+    # ================= HIGH LEVEL BLDG BLOCKS ======================
+
+    #def runCommand():
+
+    # ================= SCRIPTS ======================
+    # A specific task: i.e. generate a series of commands, listen for responses,
+    # return a ScrResult
+
+    def scr_AwaitBoot(self):
+        " "
+        # Read for the full boot time
+        self.read(max_time=60, silent_time=6)
+
+        # sometimes journald takes a while
+        if self.checkLastLine("systemd-journald"):
+            # Wait for journal check (takes a while)
+            self.read(max_time=15, silent_time=15)
+
+        return ScrResult(True, "")
+        # TODO: this should check for login msg?
+
+    def scr_Login(self):
+        "Call this after boot completes"
+
+        if self.checkLastLine("raspberrypi login:"):
+            # successfully booted
+            self.send("baking");
+            self.read()
+            self.send("baking");
+            self.read(max_time=10, silent_time=3)
+        elif self.checkLastLine("\[press ENTER to login\]"):
+            #oops, this happens sometimes
+            self.send("");
+            self.read(max_time=10, silent_time=3)
+        else:
+            self.err("Failed to boot: last lines are:")
+            self.print_last_received(5)
+            return ScrResult(False, "Boot timed out")
+
+        # Hopefully logged in?
+        if not self.checkAtPrompt():
+            #successfully logged in
+            self.log("Successfully booted and logged int")
+            return ScrResult(True, "")
+        else:
+            self.err("Failed to log in: last lines are:")
+            self.print_last_received(5)
+            return ScrResult(False, "Login Failed")
+
+
+
+
+    def scr_GenConf(self, conf_id, n):
+        self.send("cd ~/easy_bake/ser-automation/tgt_scripts")
+        self.read()
+        if not self.checkAtPrompt():
+            self.err("Command Failed (not at prompt)")
+            return
+
+        self.send(f"python3 gen_config.py {conf_id} {n} --out new_tryboot.txt")
+        self.read()
+        if not self.checkAtPrompt():
+            self.err("Command Failed (not at prompt)")
+            return
+        # TODO: CHECK FOR ERROR OUTPUT
+
+        self.send(f"sudo cp new_tryboot.txt /boot/firmware/tryboot.txt")
+        self.read()
+        if not self.checkAtPrompt():
+            self.err("Command Failed (not at prompt)")
+            return
+
+
+    def scr_Tryboot(self):
+        self.send(f"sudo reboot '0 tryboot'")
+        pass
+
+
+
+    # ================================================
 
     def console(self):
         " just pass user input to / from the serial port "
@@ -234,6 +363,14 @@ class SerialInterface:
                     time.sleep(1);
                     self.ser.rts = 0;
                     time.sleep(1);
+                elif user_input[0] == "run":
+                    # put together the rest of the args, parse them as an int
+                    n_str = " ".join(user_input[1::]).strip()
+                    try:
+                        n = int(n_str)
+                        self.scr_GenConf("test_sweep", n)
+                    except ValueError:
+                        print(f"Can't parse int '{n_str}'")
                 else:
                     print(f"Unrecognized command '{user_input[0]}'");
 
@@ -251,70 +388,92 @@ class SerialInterface:
 # See serial docs here:
 #   https://pythonhosted.org/pyserial/pyserial_api.html
 
-def old_main() :
-    print(" ==== Created Serial Object");
-    time.sleep(0.5);
-    ser.port = DEV
-    ser.rts = 1 # setting this to 0 pulls it high?
-    ser.open()
-    print(" ==== Opened port: RTS 1");
-    time.sleep(0.5);
-    print(f"Opened port {ser.name}");
-    ser.rts = 0 # setting this to 0 pulls it high?
-                # My little circuit ties RTS to GLOBAL_EN, so pulling
-                # RTS low reboots the chip
-    #ser.open();
-    print("===== Setting RTS to 0")
-    time.sleep(0.5);
+# def old_main() :
+#     print(" ==== Created Serial Object");
+#     time.sleep(0.5);
+#     ser.port = DEV
+#     ser.rts = 1 # setting this to 0 pulls it high?
+#     ser.open()
+#     print(" ==== Opened port: RTS 1");
+#     time.sleep(0.5);
+#     print(f"Opened port {ser.name}");
+#     ser.rts = 0 # setting this to 0 pulls it high?
+#                 # My little circuit ties RTS to GLOBAL_EN, so pulling
+#                 # RTS low reboots the chip
+#     #ser.open();
+#     print("===== Setting RTS to 0")
+#     time.sleep(0.5);
+#
+#     print("===== Reading initial text...")
+#     s = ser.read(64000);
+#     print("===== Initial text: {\n" + s.decode('utf8', errors="ignore") + "===== }" +  END_ANSI);
+#     print("===== Writing command:");
+#     ser.write(b'ls\n');
+#     s = ser.read(64000);
+#     print("===== Got response:\n" + s.decode('utf8', errors="ignore") + "=====" + END_ANSI);
+#
+#
+#     #ser.rts = 1;
+#     #time.sleep(1);
+#     #ser.rts = 0;
+#     #time.sleep(1);
+#
+#     while True:
+#         # Check for user input (non-blocking)
+#         if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+#             user_input = sys.stdin.readline().strip().split()
+#
+#             if len(user_input) == 0:
+#                 continue
+#             elif user_input[0] == "exit":
+#                 print("Exiting serial monitor...")
+#                 ser.close()
+#                 break
+#             elif user_input[0] == "send":
+#                 cmd = " ".join(user_input[1::])
+#                 print(f"DEBUG: cmd is '{cmd}'")
+#                 ser.write((cmd + "\n").encode("utf-8"))
+#             elif user_input[0] == "pulse":
+#                 ser.rts = 1; # RTS=1 sets it low (pulls down GLB_EN)
+#                 time.sleep(1);
+#                 ser.rts = 0;
+#                 time.sleep(1);
+#             else:
+#                 print(f"Unrecognized command '{user_input[0]}'");
+#
+#         # Check for serial input (non-blocking)
+#         while ser.in_waiting:
+#             data = ser.readline().decode("utf-8", errors="ignore")
+#             if data:
+#                 for line in data.splitlines(keepends=False):
+#                     print(f"[Received]: '{line}'")
+#
+#
+#     ser.close();
+# # End of old main
 
-    print("===== Reading initial text...")
-    s = ser.read(64000);
-    print("===== Initial text: {\n" + s.decode('utf8', errors="ignore") + "===== }" +  END_ANSI);
-    print("===== Writing command:");
-    ser.write(b'ls\n');
-    s = ser.read(64000);
-    print("===== Got response:\n" + s.decode('utf8', errors="ignore") + "=====" + END_ANSI);
 
+# ====== RUN STUFF:
 
-    #ser.rts = 1;
-    #time.sleep(1);
-    #ser.rts = 0;
-    #time.sleep(1);
+class RunInfo:
+    def __init__(self, runname, config_id, n):
+        self.runid = datetime.now().strftime("%Y-%m-%dT%H:%M:%S") + str(runname)
+        self.config_id = config_id
+        self.run_n = n
 
-    while True:
-        # Check for user input (non-blocking)
-        if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-            user_input = sys.stdin.readline().strip().split()
+    def logFileName(self):
+        return f"{runid}.log"
 
-            if len(user_input) == 0:
-                continue
-            elif user_input[0] == "exit":
-                print("Exiting serial monitor...")
-                ser.close()
-                break
-            elif user_input[0] == "send":
-                cmd = " ".join(user_input[1::])
-                print(f"DEBUG: cmd is '{cmd}'")
-                ser.write((cmd + "\n").encode("utf-8"))
-            elif user_input[0] == "pulse":
-                ser.rts = 1; # RTS=1 sets it low (pulls down GLB_EN)
-                time.sleep(1);
-                ser.rts = 0;
-                time.sleep(1);
-            else:
-                print(f"Unrecognized command '{user_input[0]}'");
+    def logFileName(self):
+        return f"{runid}.log"
 
-        # Check for serial input (non-blocking)
-        while ser.in_waiting:
-            data = ser.readline().decode("utf-8", errors="ignore")
-            if data:
-                for line in data.splitlines(keepends=False):
-                    print(f"[Received]: '{line}'")
+# ===
 
+res_bootSucc=False
+res_trybootSucc=False
+res_stressSucc=False
 
-    ser.close();
-# End of old main
-
+res_otherErr=False
 
 # new main
 serint = SerialInterface(DEV)
@@ -322,48 +481,22 @@ serint.open()
 serint.reboot()
 #serint.read(max_time=10)
 
-# Read for the full boot time
-serint.read(max_time=60, silent_time=6)
+serint.scr_AwaitBoot()
 
-if serint.checkLastLine("systemd-journald"):
-    # Wait for journal check (takes a while)
-    serint.read(max_time=15, silent_time=15)
+serint.scr_Login() #Log in to pi
 
+serint.send("ls")
+serint.read()
+# === TODO: test that we logged in successfully
+res_bootSucc=True
 
+serint.scr_GenConf("test_sweep", 0)
 
-def try_login():
-    "Call this after boot completes"
-
-    if serint.checkLastLine("raspberrypi login:"):
-        # successfully booted
-        serint.send("baking");
-        serint.read()
-        serint.send("baking");
-        serint.read(max_time=10, silent_time=3)
-    elif serint.checkLastLine("\[press ENTER to login\]"):
-        #oops, this happens sometimes
-        serint.send("");
-        serint.read(max_time=10, silent_time=3)
-    else:
-        serint.err("Failed to boot: last lines are:")
-        serint.print_last_received(5)
-        return
-
-    # Hopefully logged in?
-    if serint.checkLastLine("baking@raspberrypi:.*\$"):
-        #successfully logged in
-        serint.log("Successfully booted and logged int")
-        pass
-    else:
-        serint.err("Failed to boot: last lines are:")
-        serint.print_last_received(5)
-        return
-
-    serint.send("ls")
-    serint.read()
-
-try_login()
+serint.scr_Tryboot()
+serint.scr_AwaitBoot()
+serint.scr_Login() #Log in to pi
 
 # go interactive
 serint.console()
+
 
