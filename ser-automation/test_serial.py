@@ -7,6 +7,7 @@ import time
 import sys
 import select
 import re
+import itertools
 
 # ================ TODOS
 # (on pi)
@@ -223,19 +224,27 @@ class SerialInterface:
         # TODO: I should just make a thing to get all received lines and do [-n:]
         for entry in lastN:
             self.print_log_entry(entry)
-    def lastReceivedLine(self):
-        " returns  last received line, or None "
-        for line in reversed(self.logEntries):
-            if line.type == LType.RECV:
-                return line
-        return None
 
-    def lastSentLine(self):
-        " returns  last sent line, or None "
-        for line in reversed(self.logEntries):
-            if line.type == LType.SEND:
-                return line
-        return None
+
+    # Extracts a list of all lines of the given type
+    def allOfType(self, ltype):
+        return [l for l in self.logEntries if l.type == ltype]
+    def allRecv(self): return self.allOfType(LType.RECV)
+    def allSend(self): return self.allOfType(LType.SEND)
+
+    # ====
+
+    # Returns last line or None
+    def lastSentLine(self):     return (self.allSend() or [None])[-1]
+    def lastReceivedLine(self): return (self.allRecv() or [None])[-1]
+
+    #def lastNSentLines(self,n):
+    #    " returns last n sent lines, or None "
+    #    return list(reversed(itertools.islice(self.lastSentLines(), 0, n)))
+
+    #def lastSentLines(self):
+    #    " returns iterator of all sent lines in reverse order "
+    #    return filter(lambda x: x.type == LType.SEND, reversed(self.logEntries))
 
     def checkLastLine(self,pattern):
         " Given a regex, returns true if last line matched this pattern "
@@ -243,6 +252,29 @@ class SerialInterface:
         if self.lastReceivedLine() is None:
             return False
         return re.search(pattern, self.lastReceivedLine().data)
+
+    def runCommandAndCheckOutput(self, cmd, pattern):
+        """ sends a command as a string,
+        Waits until command completes (i.e. we return to a prompt)
+        Checks the second-last line (i.e. last line of output) against pattern
+
+        Returns a failure if the command timed out or if output didn't match pattern
+        """
+
+        err_exit("NOT IMPLEMENTED")
+
+        self.send(cmd)
+        self.read()
+        if not self.checkAtPrompt():
+            return # TODO: return failure code
+
+        lastOut = self.allRecv()[-2] # second last line
+        if lastOut is None or not re.search(pattern, lastOut.data):
+            return # TODO: return failure code
+
+        # Success!
+        return # TODO :return success code
+
 
     # ================= BUILDING BLOCKS ======================
 
@@ -326,7 +358,8 @@ class SerialInterface:
             return
         # TODO: CHECK FOR ERROR OUTPUT
 
-        self.send(f"sudo cp new_tryboot.txt /boot/firmware/tryboot.txt")
+        self.send(f"sudo cp new_tryboot.txt /boot/firmware/tryboot.txt"
+                  +" && echo 'BAKE-STEP|CP|SUCCESS|'")
         self.read()
         if not self.checkAtPrompt():
             self.err("Command Failed (not at prompt)")
@@ -492,11 +525,11 @@ res_bootSucc=True
 
 serint.scr_GenConf("test_sweep", 0)
 
-serint.scr_Tryboot()
-serint.scr_AwaitBoot()
-serint.scr_Login() #Log in to pi
-
-# go interactive
-serint.console()
+# serint.scr_Tryboot()
+# serint.scr_AwaitBoot()
+# serint.scr_Login() #Log in to pi
+# 
+# # go interactive
+# serint.console()
 
 
