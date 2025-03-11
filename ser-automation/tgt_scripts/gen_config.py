@@ -181,4 +181,4 @@ except IOError as e:
 except Exception as e: #handle other exceptions such as attribute errors
     err_exit("Unexpected error:", e)
 
-print(f"SUCCESS: wrote to {args.outfile}")
+print(f"BAKE-STEP|GEN_CONFIG|SUCCESS| wrote conf '{args.config_id} {args.n}' to {args.outfile}")
