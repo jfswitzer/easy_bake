@@ -1,0 +1,76 @@
+# For more options and information see
+# http://rptl.io/configtxt
+# Some settings may impact device functionality. See link above for details
+
+# Uncomment some or all of these to enable the optional hardware interfaces
+#dtparam=i2c_arm=on
+#dtparam=i2s=on
+#dtparam=spi=on
+
+# Enable audio (loads snd_bcm2835)
+dtparam=audio=on
+# Additional overlays and parameters are documented
+# /boot/firmware/overlays/README
+
+# Automatically load overlays for detected cameras
+camera_auto_detect=1
+
+# Automatically load overlays for detected DSI displays
+display_auto_detect=1
+
+# Automatically load initramfs files, if found
+auto_initramfs=1
+
+# Enable DRM VC4 V3D driver
+dtoverlay=vc4-kms-v3d,composite
+max_framebuffers=2
+
+# Don't have the firmware create an initial video= setting in cmdline.txt.
+# Use the kernel's default instead.
+disable_fw_kms_setup=1
+
+# Run in 64-bit mode
+arm_64bit=1
+
+# Disable compensation for displays with overscan
+disable_overscan=1
+
+# Run as fast as firmware / board allows
+arm_boost=1
+
+[cm4]
+# Enable host mode on the 2711 built-in XHCI USB controller.
+# This line should be removed if the legacy DWC2 controller is required
+# (e.g. for USB device mode) or if USB support is not required.
+otg_mode=1
+
+[cm5]
+dtoverlay=dwc2,dr_mode=host
+
+[all]
+
+# JV: setting up serial?
+enable_uart=1
+# enable more serial logging?
+uart_2ndstage=1
+
+# rpi docs (under legacy config options) say you need to disable bluetooth
+# if using uart_2ndstage or else stuff breaks
+dtoverlay=disable-bt
+
+# ===== Over/undervolting? =====
+# over_voltage_min/over_foltage are offsets from 1.2 and 1.35
+# in range -16,8, where +4 is +0.1V
+# min-max should be 1.4 to 1.55
+#over_voltage_min=-2
+over_voltage=0
+
+# ==== Tryboot stuff ===
+# allows us to use alternate cmdline when tryboot
+cmdline=try_cmdline.txt
+
+# force to not autodetect monitor? (might be needed if disabling video)
+#hdmi_force_hotplug=1
+
+over_voltage={VOLTAGE}
+arm_freq={FREQUENCY}
