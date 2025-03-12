@@ -29,8 +29,8 @@ def genVars1():
 def genVarsPi3B():
     """ returns a list of {"VOLTAGE":n, "FREQUENCY": n} """
     confs = []
-    for v in range(-3,2):
-        for f in range(1200,1350,20):
+    for v in range(-2,1):
+        for f in range(1200,1350,50):
             confs.append({"VOLTAGE": v, "FREQUENCY": f})
     return confs
 

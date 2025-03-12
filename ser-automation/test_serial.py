@@ -563,7 +563,7 @@ def tryRun(self, runname, config_id, config_n):
 parser=argparse.ArgumentParser()
 parser.add_argument("config_id",help="name of the config file to run")
 args=parser.parse_args()
-for i in range(4):
+for i in range(9):
     # new main
     print(f"\n==== STARTING RUN {i} ===\n\n")
     serint = SerialInterface(DEV)
