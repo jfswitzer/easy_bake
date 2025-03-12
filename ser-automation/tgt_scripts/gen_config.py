@@ -22,7 +22,7 @@ def genVars1():
     """ returns a list of {"VOLTAGE":n, "FREQUENCY": n} """
     confs = []
     for v in range(-16,4):
-        for f in [1,2,3]:
+        for f in [1200,1250,1300]:
             confs.append({"VOLTAGE": v, "FREQUENCY": f})
     return confs
 

@@ -442,7 +442,7 @@ class SerialInterface:
     def scr_StressTest(self,iters=4):
       for i in range(iters):
         self.send("stress -c 4 -t 30 && echo 'BAKE-STEP|STRESS|SUCCESS|'")
-        self.read()
+        self.read(max_time=40, silent_time=35) # Make sure we wait long enough for the run to complete
         if not self.checkAtPrompt():
           self.err("Command Failed (not at prompt)")
           return ScrResult(False, f"stress test prompt failed at iter {i}",value=30*i)
