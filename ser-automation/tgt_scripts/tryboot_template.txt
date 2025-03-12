@@ -72,5 +72,6 @@ cmdline=try_cmdline.txt
 # force to not autodetect monitor? (might be needed if disabling video)
 #hdmi_force_hotplug=1
 
+over_voltage_min={VOLTAGE}
 over_voltage={VOLTAGE}
 arm_freq={FREQUENCY}
