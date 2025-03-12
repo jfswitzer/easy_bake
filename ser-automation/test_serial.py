@@ -77,8 +77,10 @@ class ScrResult:
     "Result of a script run"
     # TODO: split this into timeouts? ERROR results from commands? etc?
 
-    def __init__(self, ok, msg):
+    def __init__(self, ok, msg, value=None):
+        "If  a result has a sensible value other than Success/Failure, put it in value"
         self.ok = ok
+        self.resultValue = value
         self.msg = msg
 
 # Conceptually this is getting closer to a "TestRun" object
@@ -144,7 +146,7 @@ class SerialInterface:
         # TODO: centralize this / chekc it somehow?
         # All the result columns we're writing to the CSV
         keys = [ "runid", "config_args", "boot_ok", "genconf_ok",
-                "tryboot_ok", "stress_ok"]
+                "tryboot_ok", "stress_test"]
         resultsline = ",".join( str(self.results.get(k,"")) for k in keys)
         self.log(f"Appending results to {csvpath}: {resultsline}")
 
@@ -435,7 +437,22 @@ class SerialInterface:
 
         return ScrResult(True, f"Successfully generated config for '{conf_id} {n}'")
 
+    def scr_StressTest(self,iters=4):
+      for i in range(iters):
+        self.send("stress -c 4 -t 30 && echo 'BAKE-STEP|STRESS|SUCCESS|'")
+        self.read()
+        if not self.checkAtPrompt():
+          self.err("Command Failed (not at prompt)")
+          return ScrResult(False, f"stress test prompt failed at iter {i}",value=30*i)
+        
+        lastOut = self.allRecv()[-2] # second last line
+      
+        if lastOut is None or not re.search("BAKE-STEP\|[A-Z_]*\|SUCCESS", lastOut.data):
+          self.err("Command Failed (didn't find BAKE-STEP|SUCCESS)")
+          return ScrResult(False, f"stress test failed at iter {i}",value=30*i)
 
+      return ScrResult(True, f"Succesfully ran {i} iterations of stress",value=30*iters)
+    
     def scr_Tryboot(self):
         self.send(f"sudo reboot '0 tryboot'")
         pass
@@ -620,7 +637,10 @@ def tryRun(self, runname, config_id, config_n):
     if not res.ok:
         return
 
-    # TODO: run stress test
+    res_stress = serint.scr_StressTest()
+    self.recordResult("stress_test",res_stress.resultValue, res_stress.msg)
+    if not res_stress.ok:
+      return
 
 # ============= TESTING CODE 
 def mock_run(self):
