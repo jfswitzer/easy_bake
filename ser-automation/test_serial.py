@@ -367,7 +367,7 @@ class SerialInterface:
         " "
         # Read for the full boot time
         #self.read(max_time=60, silent_time=1) #DEBUG: exit quickly
-        self.read(max_time=60, silent_time=6)
+        self.read(max_time=120, silent_time=20)
 
         # sometimes journald takes a while
         if self.checkLastLine("systemd-journald"):
