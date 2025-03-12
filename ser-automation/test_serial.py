@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-
+import argparse
 import serial
 from enum import Enum
 import datetime
@@ -449,7 +449,7 @@ class SerialInterface:
         
         lastOut = self.allRecv()[-2] # second last line
       
-        if lastOut is None or not re.search("BAKE-STEP\|[A-Z_]*\|SUCCESS", lastOut.data):
+        if lastOut is None or not re.search("BAKE-STEP\|[A-Z_]*\|SUCCESS|", lastOut.data):
           self.err("Command Failed (didn't find BAKE-STEP|SUCCESS)")
           return ScrResult(False, f"stress test failed at iter {i}",value=30*i)
 
@@ -485,14 +485,6 @@ class SerialInterface:
                     time.sleep(1);
                     self.ser.rts = 0;
                     time.sleep(1);
-                elif user_input[0] == "run":
-                    # put together the rest of the args, parse them as an int
-                    n_str = " ".join(user_input[1::]).strip()
-                    try:
-                        n = int(n_str)
-                        self.scr_GenConf("test_sweep", n)
-                    except ValueError:
-                        print(f"Can't parse int '{n_str}'")
                 else:
                     print(f"Unrecognized command '{user_input[0]}'");
 
@@ -548,7 +540,7 @@ def tryRun(self, runname, config_id, config_n):
         return
 
 
-    res = self.scr_GenConf("test_sweep", 0)
+    res = self.scr_GenConf(config_id, 0)
     self.recordResult("genconf_ok", res.ok, res.msg)
     if not res.ok:
         return
@@ -568,13 +560,18 @@ def tryRun(self, runname, config_id, config_n):
     if not res_stress.ok:
       return
 
+parser=argparse.ArgumentParser()
+parser.add_argument("config_id",help="name of the config file to run")
+args=parser.parse_args()
 for i in range(4):
     # new main
     print(f"\n==== STARTING RUN {i} ===\n\n")
     serint = SerialInterface(DEV)
     serint.open()
     serint.reboot()
-    tryRun(serint, "test_debug", "test_sweep", i)
+    config=args.config_id
+    print(f"\n CONFIG ID: {config}\n")
+    tryRun(serint, "test_debug", config, i)
     #serint.read(max_time=10)
 
     print("\n\n\n==== RUN RESULTS ===")

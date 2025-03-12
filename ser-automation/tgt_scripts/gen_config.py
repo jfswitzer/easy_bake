@@ -26,6 +26,13 @@ def genVars1():
             confs.append({"VOLTAGE": v, "FREQUENCY": f})
     return confs
 
+def genVarsPi3B():
+    """ returns a list of {"VOLTAGE":n, "FREQUENCY": n} """
+    confs = []
+    for v in range(-3,2):
+        for f in range(1200,1350,20):
+            confs.append({"VOLTAGE": v, "FREQUENCY": f})
+    return confs
 
 configs = {
         "test_static": {
@@ -37,6 +44,10 @@ configs = {
           "_template": "tryboot_template.txt",
           "_vars": (CT.FUNC, genVars1)
             # vary from -10 to 4
+        },
+        "test_3b": {
+          "_template": "tryboot_template.txt",
+          "_vars": (CT.FUNC, genVarsPi3B)
         }
 }
 
