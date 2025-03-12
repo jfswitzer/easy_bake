@@ -364,11 +364,13 @@ class SerialInterface:
     def scr_AwaitBoot(self):
         " "
         # Read for the full boot time
+        #self.read(max_time=60, silent_time=1) #DEBUG: exit quickly
         self.read(max_time=60, silent_time=6)
 
         # sometimes journald takes a while
         if self.checkLastLine("systemd-journald"):
             # Wait for journal check (takes a while)
+            #self.read(max_time=15, silent_time=1) #DEBUG: exit quickly
             self.read(max_time=15, silent_time=15)
 
         return ScrResult(True, "")
@@ -488,102 +490,26 @@ class SerialInterface:
 # ================================
 
 
-# See serial docs here:
-#   https://pythonhosted.org/pyserial/pyserial_api.html
-
-# def old_main() :
-#     print(" ==== Created Serial Object");
-#     time.sleep(0.5);
-#     ser.port = DEV
-#     ser.rts = 1 # setting this to 0 pulls it high?
-#     ser.open()
-#     print(" ==== Opened port: RTS 1");
-#     time.sleep(0.5);
-#     print(f"Opened port {ser.name}");
-#     ser.rts = 0 # setting this to 0 pulls it high?
-#                 # My little circuit ties RTS to GLOBAL_EN, so pulling
-#                 # RTS low reboots the chip
-#     #ser.open();
-#     print("===== Setting RTS to 0")
-#     time.sleep(0.5);
-#
-#     print("===== Reading initial text...")
-#     s = ser.read(64000);
-#     print("===== Initial text: {\n" + s.decode('utf8', errors="ignore") + "===== }" +  END_ANSI);
-#     print("===== Writing command:");
-#     ser.write(b'ls\n');
-#     s = ser.read(64000);
-#     print("===== Got response:\n" + s.decode('utf8', errors="ignore") + "=====" + END_ANSI);
-#
-#
-#     #ser.rts = 1;
-#     #time.sleep(1);
-#     #ser.rts = 0;
-#     #time.sleep(1);
-#
-#     while True:
-#         # Check for user input (non-blocking)
-#         if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-#             user_input = sys.stdin.readline().strip().split()
-#
-#             if len(user_input) == 0:
-#                 continue
-#             elif user_input[0] == "exit":
-#                 print("Exiting serial monitor...")
-#                 ser.close()
-#                 break
-#             elif user_input[0] == "send":
-#                 cmd = " ".join(user_input[1::])
-#                 print(f"DEBUG: cmd is '{cmd}'")
-#                 ser.write((cmd + "\n").encode("utf-8"))
-#             elif user_input[0] == "pulse":
-#                 ser.rts = 1; # RTS=1 sets it low (pulls down GLB_EN)
-#                 time.sleep(1);
-#                 ser.rts = 0;
-#                 time.sleep(1);
-#             else:
-#                 print(f"Unrecognized command '{user_input[0]}'");
-#
-#         # Check for serial input (non-blocking)
-#         while ser.in_waiting:
-#             data = ser.readline().decode("utf-8", errors="ignore")
-#             if data:
-#                 for line in data.splitlines(keepends=False):
-#                     print(f"[Received]: '{line}'")
-#
-#
-#     ser.close();
-# # End of old main
-
-
 # ====== Main
 
-class RunInfo:
-    def __init__(self, runname, config_id, n):
-        self.runid = datetime.now().strftime("%Y-%m-%dT%H:%M:%S") + str(runname)
-        self.config_id = config_id
-        self.run_n = n
 
-    def logFileName(self):
-        return f"{runid}.log"
-
-    def logFileName(self):
-        return f"{runid}.log"
-
-# ===
-
-res_bootSucc=False
-res_trybootSucc=False
-res_stressSucc=False
-
-res_otherErr=False
-
-# new main
-serint = SerialInterface(DEV)
-serint.open()
-serint.reboot()
-#serint.read(max_time=10)
-
+# # ============= TESTING CODE
+# def mock_run(self):
+#     """Fill in data as if we performed a run, but don't actually
+#     do anything with the serial port"""
+#     runname = "hello_world"
+#     config_id, config_n = "beep", 42
+#     assert not " " in runname, "runname should have no spaces"
+#     assert not " " in config_id, "config_id should have no space"
+#     assert isinstance(config_n, int), "n should be an int"
+#     runid = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S") + "-" + str(runname)
+#     self.recordResult("runid", runid, "Starting run")
+#     self.recordResult("config_args", f"{config_id} {config_n}", "")
+#
+#     self.recordResult("boot_ok", True, "foo")
+#
+#     self.recordResult("genconf_ok", False, "bar")
+# # ============= END TESTING CODE
 
 
 def tryRun(self, runname, config_id, config_n):
@@ -592,7 +518,7 @@ def tryRun(self, runname, config_id, config_n):
     assert isinstance(config_n, int), "n should be an int"
 
     runid = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S") + str(runname)
-    self.recordResult("runid", runid, "Starting run")
+    self.recordResult("runid", runid, " === Starting run ===")
     self.recordResult("config_args", f"{config_id} {config_n}", "")
 
     self.reboot()
@@ -622,27 +548,24 @@ def tryRun(self, runname, config_id, config_n):
 
     # TODO: run stress test
 
-# ============= TESTING CODE 
-def mock_run(self):
-    runname = "hello_world"
-    config_id, config_n = "beep", 42
-    assert not " " in runname, "runname should have no spaces"
-    assert not " " in config_id, "config_id should have no space"
-    assert isinstance(config_n, int), "n should be an int"
-    runid = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S") + "-" + str(runname)
-    self.recordResult("runid", runid, "Starting run")
-    self.recordResult("config_args", f"{config_id} {config_n}", "")
+for i in range(4):
+    # new main
+    print(f"\n==== STARTING RUN {i} ===\n\n")
+    serint = SerialInterface(DEV)
+    serint.open()
+    serint.reboot()
+    tryRun(serint, "test_debug", "test_sweep", i)
+    #serint.read(max_time=10)
 
-    self.recordResult("boot_ok", True, "foo")
+    print("\n\n\n==== RUN RESULTS ===")
+    print(serint.results)
+    serint.writeOutResults()
 
-    self.recordResult("genconf_ok", False, "bar")
+    serint.close()
 
-tryRun(serint, "test_run", "test_sweep", 0)
+
 #mock_run(serint)
 
-print("\n\n\n==== RUN RESULTS ===")
-print(serint.results)
-serint.writeOutResults()
 
 # # go interactive
 # serint.console()
