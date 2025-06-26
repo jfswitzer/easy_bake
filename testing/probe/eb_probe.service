@@ -1,0 +1,13 @@
+[Unit]
+Description=Stress service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=600
+User=baking
+ExecStart=/usr/bin/env python3 /home/baking/easy_bake/testing/probe/eb_probe.py
+
+[Install]
+WantedBy=multi-user.target
