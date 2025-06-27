@@ -47,6 +47,8 @@ def mark_undervolting_done():
 
 def check_undervolting_done():
     """Returns true if no more undervolting"""
+    if int(get_uvolt_status()) != "-1":
+        return False
     try:
         with open(f"{WORKING_DIR}/.last_time", 'r') as f:
             last_timestamp = f.read().strip()
@@ -54,7 +56,7 @@ def check_undervolting_done():
         mark_undervolting_done()
         return False
     diff = abs(int(last_timestamp) - int(time.time()))
-    if diff >= 24*3600:
+    if diff >= 3600:
         return False
     else: return True
 
