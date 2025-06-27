@@ -46,8 +46,12 @@ def mark_undervolting_done():
 
 def check_undervolting_done():
     """Check to make sure that at least 24hr has passed since undervolting was last marked done"""
-    with open(".last_time", 'r') as f:
-        last_timestamp = f.read().strip()
+    try:
+        with open(".last_time", 'r') as f:
+            last_timestamp = f.read().strip()
+    except FileNotFoundError:
+        mark_undervolting_done()
+        return False
     diff = abs(int(last_timestamp) - int(time.time()))
     if diff >= 24*3600:
         return True
