@@ -6,7 +6,6 @@ StartLimitIntervalSec=0
 Type=simple
 Restart=always
 RestartSec=600
-User=baking
 ExecStart=/usr/bin/env python3 /home/baking/easy_bake/testing/probe/eb_probe.py
 
 [Install]
