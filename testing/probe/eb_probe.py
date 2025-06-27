@@ -10,7 +10,7 @@ import time
 # uvolt.status contains either the most recent undervolting amount, in steps (small positive val)
 # OR if its time to restart, it contains -1
 #
-WORKING_DIR="/home/jen/easy_bake/testing/probe"
+WORKING_DIR="/home/baking/easy_bake/testing/probe"
 def get_most_recent_log(directory_path='logs'):
     entries = os.listdir(directory_path)
     entries_with_times = []
