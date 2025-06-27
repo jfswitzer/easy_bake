@@ -36,7 +36,7 @@ def get_uvolt_status():
     
 def set_uvolt_status(offset):
     with open(f"{WORKING_DIR}/uvolt.status", 'w+') as f:
-        f.write(offset)
+        f.write(str(offset))
         return True
 
 def mark_undervolting_done():
