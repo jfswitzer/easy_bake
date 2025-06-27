@@ -11,7 +11,7 @@ import time
 # OR if its time to restart, it contains -1
 #
 WORKING_DIR="/home/baking/easy_bake/testing/probe"
-def get_most_recent_log(directory_path='logs'):
+def get_most_recent_log(directory_path=f'{WORKING_DIR}/logs'):
     entries = os.listdir(directory_path)
     entries_with_times = []
     for entry in entries:
