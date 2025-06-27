@@ -48,7 +48,7 @@ def check_undervolting_done():
     """Check to make sure that at least 24hr has passed since undervolting was last marked done"""
     with open(".last_time", 'r') as f:
         last_timestamp = f.read().strip()
-    diff = abs(last_timestamp - int(time.time()))
+    diff = abs(int(last_timestamp) - int(time.time()))
     if diff >= 24*3600:
         return True
     else: return False
@@ -68,31 +68,27 @@ def iterate_undervolt():
         uvolt=last_uvolt+1
     write_tryboot(uvolt)
     set_uvolt_status(uvolt)
-    try:
-        process = subprocess.Popen(command = ['reboot', '\'0 tryboot\''], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except FileNotFoundError:
-        print(f"Error: Command '{' '.join(command)}' not found.")
+    process = subprocess.Popen(['reboot', '\'0 tryboot\''], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 def run_experiment():
     """Run the stress experiment"""
-    subprocess.Popen(command = ["./run_stress.sh" "fft"])
+    subprocess.Popen(["./run_stress.sh" "fft"])
 
 def check_stress_output():
     """check the output of the stress experiment"""
     logfile=get_most_recent_log()
     with open(logfile, 'r') as file:
-    for line in file:
-        if "stress-ng: fail:" in line:
-            write_macro_log(logfile)
-            return True
+        for line in file:
+            if "stress-ng: fail:" in line:
+                write_macro_log(logfile)
+                return True
     return False
 
 #"2025-05-31T09:45:24Z_volt=1.1938V_zeta_10_eb_probe.log"
 def write_macro_log(filename):
     err_log="logs/errors.log"
     with open(err_log,"a") as f:
-        f.write(f"{filename}\n"
-    
+        f.write(f"{filename}\n")
     
 def write_tryboot(undervolt_step):
     template="tryboot_template.txt"
@@ -112,13 +108,14 @@ def write_tryboot(undervolt_step):
 
 def main():
     """Main function of the script."""
-    if check_undervolting_done(): exit
+    if check_undervolting_done():
+        sys.exit()
     
     iterate_undervolt()
     run_experiment()
     err=check_stress_output()
     if err:
-       restart_undervolt()
+       restart_uvolt()
 
 if __name__ == "__main__":
     main()
