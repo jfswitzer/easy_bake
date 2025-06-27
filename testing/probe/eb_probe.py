@@ -80,7 +80,7 @@ def iterate_undervolt():
 
 def run_experiment():
     """Run the stress experiment"""
-    subprocess.Popen([f"{WORKING_DIR}/run_stress.sh" "fft"])
+    subprocess.Popen([f"{WORKING_DIR}/run_stress.sh", "fft"])
 
 def check_stress_output():
     """check the output of the stress experiment"""
