@@ -33,6 +33,7 @@ def get_uvolt_status():
         return int(value)
     except FileNotFoundError:
         set_uvolt_status(0)
+        return 0
     
 def set_uvolt_status(offset):
     with open(f"{WORKING_DIR}/uvolt.status", 'w+') as f:
@@ -47,7 +48,7 @@ def mark_undervolting_done():
 
 def check_undervolting_done():
     """Returns true if no more undervolting"""
-    if int(get_uvolt_status()) != "-1":
+    if get_uvolt_status() != -1:
         return False
     try:
         with open(f"{WORKING_DIR}/.last_time", 'r') as f:
