@@ -10,6 +10,7 @@ import time
 # uvolt.status contains either the most recent undervolting amount, in steps (small positive val)
 # OR if its time to restart, it contains -1
 #
+WORKING_DIR="/home/jen/easy_bake/testing/probe"
 def get_most_recent_log(directory_path='logs'):
     entries = os.listdir(directory_path)
     entries_with_times = []
@@ -27,35 +28,35 @@ def get_most_recent_log(directory_path='logs'):
 
 def get_uvolt_status():
     try:
-        with open("uvolt.status", 'r') as f:
+        with open(f"{WORKING_DIR}/uvolt.status", 'r') as f:
             value = f.read().strip()
         return int(value)
-    except Exception as e:
-        return None
+    except FileNotFoundError:
+        set_uvolt_status(0)
     
 def set_uvolt_status(offset):
-    with open("uvolt.status", 'w+') as f:
+    with open(f"{WORKING_DIR}/uvolt.status", 'w+') as f:
         f.write(offset)
         return True
 
 def mark_undervolting_done():
     """"Put the current timestamp in a file"""
     current_timestamp = int(time.time())
-    with open(".last_time", 'w+') as f:
+    with open(f"{WORKING_DIR}/.last_time", 'w+') as f:
         f.write(str(current_timestamp))
 
 def check_undervolting_done():
-    """Check to make sure that at least 24hr has passed since undervolting was last marked done"""
+    """Returns true if no more undervolting"""
     try:
-        with open(".last_time", 'r') as f:
+        with open(f"{WORKING_DIR}/.last_time", 'r') as f:
             last_timestamp = f.read().strip()
     except FileNotFoundError:
         mark_undervolting_done()
         return False
     diff = abs(int(last_timestamp) - int(time.time()))
     if diff >= 24*3600:
-        return True
-    else: return False
+        return False
+    else: return True
 
 def restart_uvolt():
     set_uvolt_status(-1)
@@ -76,7 +77,7 @@ def iterate_undervolt():
 
 def run_experiment():
     """Run the stress experiment"""
-    subprocess.Popen(["./run_stress.sh" "fft"])
+    subprocess.Popen([f"{WORKING_DIR}/run_stress.sh" "fft"])
 
 def check_stress_output():
     """check the output of the stress experiment"""
@@ -90,12 +91,16 @@ def check_stress_output():
 
 #"2025-05-31T09:45:24Z_volt=1.1938V_zeta_10_eb_probe.log"
 def write_macro_log(filename):
-    err_log="logs/errors.log"
-    with open(err_log,"a") as f:
-        f.write(f"{filename}\n")
+    err_log=f"{WORKING_DIR}/logs/errors.log"
+    try:
+        with open(err_log,"a") as f:
+            f.write(f"{filename}\n")
+    except FileNotFoundError:
+        with open(err_log,'x') as f:
+            f.write('\n')
     
 def write_tryboot(undervolt_step):
-    template="tryboot_template.txt"
+    template=f"{WORKING_DIR}/tryboot_template.txt"
     output="/boot/firmware/tryboot.txt"
     placeholder="<voltage>"
     try:
