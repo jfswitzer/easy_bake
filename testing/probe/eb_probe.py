@@ -85,6 +85,7 @@ def run_experiment():
 def check_stress_output():
     """check the output of the stress experiment"""
     logfile=get_most_recent_log()
+    print(logfile)
     with open(logfile, 'r') as file:
         for line in file:
             if "stress-ng: fail:" in line:
