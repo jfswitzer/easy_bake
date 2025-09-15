@@ -1,0 +1,19 @@
+2025-07-16T00:42:05Z
+volt=1.1563V
+stress-ng: debug: [1621] invoked with 'stress-ng --cpu 4 --log-file log.log --cpu-method fft --verify -v -t 10m' by user 0 'root'
+stress-ng: debug: [1621] stress-ng 0.15.06
+stress-ng: debug: [1621] system: Linux raspberrypi 6.6.51+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.6.51-1+rpt3 (2024-10-08) aarch64
+stress-ng: debug: [1621] RAM total: 907.3M, RAM free: 149.9M, swap free: 512.0M
+stress-ng: debug: [1621] temporary file path: '.', filesystem type: ext2
+stress-ng: debug: [1621] 4 processors online, 4 processors configured
+stress-ng: info:  [1621] setting to a 600 second (10 mins, 0.00 secs) run per stressor
+stress-ng: info:  [1621] dispatching hogs: 4 cpu
+stress-ng: debug: [1621] cache allocate: using cache maximum level L2
+stress-ng: debug: [1621] cache allocate: shared cache buffer size: 512K
+stress-ng: debug: [1621] starting stressors
+stress-ng: debug: [1623] cpu: started [1623] (instance 0)
+stress-ng: debug: [1623] cpu: using method 'fft'
+stress-ng: debug: [1624] cpu: started [1624] (instance 1)
+stress-ng: debug: [1625] cpu: started [1625] (instance 2)
+stress-ng: debug: [1621] 4 stressors started
+stress-ng: debug: [1626] cpu: started [1626] (instance 3)
