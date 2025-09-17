@@ -1,0 +1,10 @@
+[Unit]
+Description=Heartbeat service to record temp, frequency
+
+[Service]
+Type=simple
+User=baking
+ExecStart=/usr/bin/env bash /home/baking/easy_bake/testing/heartbeat/heartbeat.sh
+
+[Install]
+WantedBy=multi-user.target

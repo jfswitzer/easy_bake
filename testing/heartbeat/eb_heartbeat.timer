@@ -1,0 +1,9 @@
+[Unit]
+Description=Record heartbeat every 10s
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=10s
+
+[Install]
+WantedBy=timers.target
