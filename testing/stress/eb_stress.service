@@ -1,0 +1,13 @@
+[Unit]
+Description=Stress service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=baking
+ExecStart=/usr/bin/env bash /home/baking/easy_bake/testing/stress/stress.sh
+
+[Install]
+WantedBy=multi-user.target
