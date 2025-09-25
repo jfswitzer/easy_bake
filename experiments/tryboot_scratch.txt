@@ -52,5 +52,5 @@ dtoverlay=dwc2,dr_mode=host
 enable_uart=1
 uart_2ndstage=1
 dtoverlay=disable-bt
-over_voltage=-5
-over_voltage_min=-5
+over_voltage=-6
+over_voltage_min=-6
