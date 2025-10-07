@@ -2,8 +2,9 @@
 Description=Record heartbeat every 10s
 
 [Timer]
-OnBootSec=1min
+OnBootSec=10s
 OnUnitActiveSec=10s
+Persistent=true
 
 [Install]
 WantedBy=timers.target
