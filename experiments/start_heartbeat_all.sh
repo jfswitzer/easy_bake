@@ -1,4 +1,4 @@
 #!/bin/bash
-for ip in $(cat ips.txt); do
-    ./start_heartbeat.sh $ip
+for hn in $(cat hostnames.txt); do
+    ./start_heartbeat.sh $hn
 done

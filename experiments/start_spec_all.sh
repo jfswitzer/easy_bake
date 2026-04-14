@@ -1,4 +1,4 @@
 #!/bin/bash
-for ip in $(cat ips.txt); do
-    ./start_spec.sh $1 $ip
+for ip in $(cat new_hosts.txt); do
+    ./start_spec.sh $ip
 done

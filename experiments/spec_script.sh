@@ -1,7 +1,2 @@
 #!/bin/bash
-
-./install.sh
-
-source shrc
-
-
+tmux new-session -d -s my_session '/home/baking/spec_script_tmux.sh'

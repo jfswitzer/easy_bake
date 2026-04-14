@@ -1,2 +1,2 @@
-scp kickoff_hb.sh baking@132.239.10.$1:/home/baking
-ssh baking@132.239.10.$1 'bash -s < /home/baking/kickoff_hb.sh'
+scp kickoff_hb.sh baking@$1.dynamic.ucsd.edu:/home/baking
+ssh baking@$1.dynamic.ucsd.edu 'bash -s < /home/baking/kickoff_hb.sh'
