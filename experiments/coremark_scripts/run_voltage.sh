@@ -11,7 +11,7 @@ echo "Starting logs for 1800 iterations..."
 for i in $(seq 1 1800)
 do
     # Get timestamp
-    TIME=$(date date +%Y%m%d_%H%M%S)
+    TIME=$(date +%Y%m%d_%H%M%S)
 
     # Extract Frequency (scaled to MHz)
     FREQ=$(vcgencmd measure_clock arm | awk -F= '{printf "%.0f", $2 / 1000000}')

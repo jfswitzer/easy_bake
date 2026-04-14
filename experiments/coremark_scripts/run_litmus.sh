@@ -1,7 +1,6 @@
 #/bin/bash
 
-TIMESTAMP=$(date date +%Y%m%d_%H%M%S
-)
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 mkdir litmus_$TIMESTAMP
 ./run_voltage.sh &
 (
